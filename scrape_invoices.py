@@ -454,6 +454,8 @@ def main():
         context = browser.new_context(
             viewport={'width': 1400, 'height': 900},
             user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            locale='pt-PT',
+            timezone_id='Europe/Tallinn',
             storage_state=storage,
         )
         page = context.new_page()
