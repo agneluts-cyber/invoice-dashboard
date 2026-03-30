@@ -1,0 +1,42 @@
+name: Daily Invoice Update
+
+on:
+  schedule:
+    # 9:00 AM EET (UTC+2) = 7:00 AM UTC, weekdays only
+    - cron: '0 7 * * 1-5'
+  workflow_dispatch: # allows manual trigger from GitHub UI
+
+jobs:
+  update-dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
+      - name: Run scraper
+        env:
+          BOLT_EMAIL: ${{ secrets.BOLT_EMAIL }}
+          BOLT_PASSWORD: ${{ secrets.BOLT_PASSWORD }}
+          NETLIFY_TOKEN: ${{ secrets.NETLIFY_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: python scrape_invoices.py
+
+      - name: Save invoice history
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add invoice_history.json
+          git diff --staged --quiet || git commit -m "Update invoice history [skip ci]"
+          git push

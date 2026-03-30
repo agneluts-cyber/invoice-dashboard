@@ -1,0 +1,24 @@
+# Secrets & sessions
+.env
+bolt_session.json
+
+# Generated files
+dashboard.html
+invoices overview - Sheet1.csv
+*.csv
+!invoice_history.json
+_deploy.zip
+
+# Local tools
+screenshots/
+scrape.log
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Tracker CSV (fetched fresh each run)
+*.Tracker*.csv
