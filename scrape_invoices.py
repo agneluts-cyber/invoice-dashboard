@@ -526,7 +526,6 @@ def main():
                 fetch_tracker_sheet()
                 regenerate_dashboard()
                 upload_to_google_drive()
-                deploy_to_netlify()
 
                 total = len(csv_rows)
                 from dashboard import load_invoices, compute_metrics

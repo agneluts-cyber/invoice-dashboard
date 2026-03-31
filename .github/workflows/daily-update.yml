@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   update-dashboard:
@@ -32,8 +34,6 @@ jobs:
         env:
           BOLT_EMAIL: ${{ secrets.BOLT_EMAIL }}
           BOLT_PASSWORD: ${{ secrets.BOLT_PASSWORD }}
-          NETLIFY_TOKEN: ${{ secrets.NETLIFY_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         run: python scrape_invoices.py
 
       - name: Save invoice history
@@ -43,3 +43,16 @@ jobs:
           git add invoice_history.json
           git diff --staged --quiet || git commit -m "Update invoice history [skip ci]"
           git push
+
+      - name: Prepare deploy folder
+        run: |
+          mkdir -p _site
+          cp dashboard.html _site/index.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          publish_branch: gh-pages
+          force_orphan: true
