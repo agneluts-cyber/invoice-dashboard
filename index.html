@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice Overview Dashboard</title>
+<style>
+:root {
+  --blue: #4361ee; --red: #e63946; --orange: #f77f00;
+  --teal: #2a9d8f; --coral: #e76f51; --purple: #7209b7; --crimson: #d00000;
+  --gray-50: #f9fafb; --gray-100: #f0f2f5; --gray-200: #e5e7eb;
+  --gray-400: #9ca3af; --gray-500: #6b7280; --gray-900: #1a1a2e;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--gray-100); color: var(--gray-900); }
+
+.header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; padding: 28px 40px; }
+.header h1 { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.02em; }
+.header .subtitle { font-size: 0.85rem; color: #a0aec0; margin-top: 4px; }
+.container { max-width: 1280px; margin: 0 auto; padding: 24px; }
+
+/* Toolbar */
+.toolbar { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
+.search-box { flex: 1; min-width: 220px; padding: 10px 16px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 0.85rem; outline: none; transition: border-color 0.2s; }
+.search-box:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(67,97,238,0.12); }
+.filter-select { padding: 10px 16px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 0.85rem; background: #fff; outline: none; cursor: pointer; min-width: 180px; }
+.filter-select:focus { border-color: var(--blue); }
+.reset-btn { padding: 10px 20px; border: none; border-radius: 8px; background: var(--gray-200); color: var(--gray-500); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.reset-btn:hover { background: #d1d5db; color: var(--gray-900); }
+
+/* KPI Cards */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.kpi-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); position: relative; overflow: hidden; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; border: 2px solid transparent; }
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.kpi-card.active { border-color: var(--gray-900); }
+.kpi-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+.kpi-card[data-kpi="total"]::before { background: var(--blue); }
+.kpi-card[data-kpi="overdue"]::before { background: var(--red); }
+.kpi-card[data-kpi="over7d"]::before { background: var(--orange); }
+.kpi-card[data-kpi="pos"]::before { background: var(--teal); }
+.kpi-card[data-kpi="neg"]::before { background: var(--coral); }
+.kpi-card[data-kpi="over30d"]::before { background: var(--crimson); }
+.kpi-card[data-kpi="today"]::before { background: #06d6a0; }
+.kpi-card[data-kpi="yesterday"]::before { background: #118ab2; }
+.kpi-card[data-kpi="compare"]::before { background: #6c63ff; }
+.kpi-card[data-kpi="tracker"]::before { background: #ff6b6b; }
+.kpi-card[data-kpi="tracker"] .kpi-value { color: #ff6b6b; }
+.tracker-day { font-size: 0.72rem; color: var(--gray-500); margin-top: 2px; }
+.kpi-card.month-card::before { background: var(--purple); }
+.kpi-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); font-weight: 600; margin-bottom: 6px; }
+.kpi-value { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.kpi-pct { font-size: 0.8rem; color: var(--gray-400); margin-top: 4px; }
+.kpi-card[data-kpi="total"] .kpi-value { color: var(--blue); }
+.kpi-card[data-kpi="overdue"] .kpi-value { color: var(--red); }
+.kpi-card[data-kpi="over7d"] .kpi-value { color: var(--orange); }
+.kpi-card[data-kpi="pos"] .kpi-value { color: var(--teal); }
+.kpi-card[data-kpi="neg"] .kpi-value { color: var(--coral); }
+.kpi-card[data-kpi="over30d"] .kpi-value { color: var(--crimson); }
+.kpi-card[data-kpi="compare"] .kpi-value { color: #6c63ff; }
+.compare-detail { font-size: 0.72rem; color: var(--gray-500); margin-top: 2px; line-height: 1.4; }
+.compare-detail .approved { color: #2a9d8f; font-weight: 700; }
+.compare-detail .new-inv { color: var(--orange); font-weight: 700; }
+.kpi-card[data-kpi="today"] .kpi-value { color: #06d6a0; }
+.kpi-card[data-kpi="yesterday"] .kpi-value { color: #118ab2; }
+.kpi-card.month-card .kpi-value { color: var(--purple); }
+
+/* Bar chart */
+.section { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 20px; overflow: hidden; }
+.section-header { padding: 16px 24px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; transition: background 0.15s; }
+.section-header:hover { background: var(--gray-50); }
+.section-header h2 { font-size: 0.95rem; font-weight: 600; flex: 1; }
+.section-header .chevron { font-size: 0.7rem; color: var(--gray-400); transition: transform 0.25s; }
+.section-header .chevron.collapsed { transform: rotate(-90deg); }
+.badge { font-size: 0.7rem; padding: 3px 8px; border-radius: 999px; font-weight: 600; color: #fff; white-space: nowrap; }
+.section-body { transition: max-height 0.35s ease, opacity 0.25s ease; overflow: hidden; }
+.section-body.collapsed { max-height: 0 !important; opacity: 0; }
+.section.highlight { animation: flashHighlight 1.2s ease; }
+@keyframes flashHighlight { 0%,100% { box-shadow: 0 1px 3px rgba(0,0,0,0.08); } 30% { box-shadow: 0 0 0 3px rgba(67,97,238,0.3); } }
+
+/* Bar rows */
+.bar-row { display: flex; align-items: center; gap: 12px; padding: 0 24px 16px; }
+.bar-track { flex: 1; height: 10px; background: var(--gray-200); border-radius: 999px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 999px; transition: width 0.8s ease; }
+.bar-label { font-size: 0.75rem; color: var(--gray-500); min-width: 110px; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+th { background: var(--gray-50); text-align: left; padding: 10px 16px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.72rem; cursor: pointer; user-select: none; white-space: nowrap; transition: background 0.15s; }
+th:hover { background: #eef0f3; }
+th .sort-icon { display: inline-block; margin-left: 4px; font-size: 0.6rem; opacity: 0.4; }
+th.sort-asc .sort-icon, th.sort-desc .sort-icon { opacity: 1; color: var(--blue); }
+td { padding: 10px 16px; border-top: 1px solid #f0f0f0; }
+tbody tr { transition: background 0.1s; }
+tbody tr:hover td { background: #f3f4ff; }
+.urgent { color: var(--red); font-weight: 700; }
+.positive { color: var(--teal); font-weight: 600; }
+.negative { color: var(--coral); font-weight: 600; }
+.no-results { padding: 24px; text-align: center; color: var(--gray-400); font-style: italic; }
+
+@media (max-width: 640px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .container { padding: 12px; }
+  .header { padding: 20px; }
+  .toolbar { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Invoice Overview Dashboard</h1>
+  <div class="subtitle">Data as of 03 April 2026 &middot; <span id="subtitleCount">174</span> invoices on the table</div>
+</div>
+
+<div class="container">
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input type="text" class="search-box" id="searchBox" placeholder="Search invoices, suppliers...">
+    <select class="filter-select" id="supplierFilter"><option value="">All Suppliers</option></select>
+    <button class="reset-btn" id="resetBtn">Reset Filters</button>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <!-- At a Glance -->
+  <div class="section" id="sec-glance">
+    <div class="section-header" onclick="toggleSection('glance')">
+      <h2>At a Glance</h2>
+      <span class="chevron" id="chev-glance">&#9660;</span>
+    </div>
+    <div class="section-body" id="body-glance"><div style="padding-top:16px" id="barsContainer"></div></div>
+  </div>
+
+  <!-- Detail sections rendered by JS -->
+  <div id="sectionsContainer"></div>
+</div>
+
+<script>
+const TODAY = new Date(2026, 3, 3);
+const RAW = [{"received": "04/02/2026", "inv_date": "02/02/2026", "due_date": "04/03/2026", "invoice_num": "2026/4085", "supplier": "EPORIFRUTAS386-24-592292", "inv_total": 180.11, "del_total": 213.24, "diff_value": 33.13}, {"received": "06/02/2026", "inv_date": "05/02/2026", "due_date": "07/03/2026", "invoice_num": "700223", "supplier": "MENORQUINA386-548-591919", "inv_total": 44.64, "del_total": 0.0, "diff_value": -44.64}, {"received": "11/02/2026", "inv_date": "10/02/2026", "due_date": "12/03/2026", "invoice_num": "4886", "supplier": "GLEBA386-27-091222-59622", "inv_total": 712.68, "del_total": 76.69, "diff_value": -635.99}, {"received": "25/02/2026", "inv_date": "23/02/2026", "due_date": "25/03/2026", "invoice_num": "FT026/412", "supplier": "RANA386-24-597062", "inv_total": 212.25, "del_total": 206.1, "diff_value": -6.15}, {"received": "25/02/2026", "inv_date": "23/02/2026", "due_date": "25/03/2026", "invoice_num": "FT026/411", "supplier": "RANA386-92585-597104", "inv_total": 222.13, "del_total": 193.64, "diff_value": -28.49}, {"received": "25/02/2026", "inv_date": "23/02/2026", "due_date": "25/03/2026", "invoice_num": "FT026/400", "supplier": "RANA386-26-597076", "inv_total": 245.69, "del_total": 239.56, "diff_value": -6.13}, {"received": "26/03/2026", "inv_date": "25/02/2026", "due_date": "27/03/2026", "invoice_num": "FACC26/2276", "supplier": "JOAQUIM BARROS386-24-604866", "inv_total": 281.77, "del_total": 0.0, "diff_value": -281.77}, {"received": "11/02/2026", "inv_date": "11/02/2026", "due_date": "30/03/2026", "invoice_num": "5905959319", "supplier": "IGLO386-26-596228", "inv_total": 651.16, "del_total": 250.2, "diff_value": -400.96}, {"received": "27/02/2026", "inv_date": "25/02/2026", "due_date": "30/03/2026", "invoice_num": "5905959640", "supplier": "IGLO386-24-604437", "inv_total": 550.71, "del_total": null, "diff_value": null}, {"received": "11/02/2026", "inv_date": "11/02/2026", "due_date": "30/03/2026", "invoice_num": "5905959320", "supplier": "IGLO386-548-596235", "inv_total": 658.15, "del_total": 271.17, "diff_value": -386.98}, {"received": "26/02/2026", "inv_date": "25/02/2026", "due_date": "30/03/2026", "invoice_num": "5905959643", "supplier": "IGLO386-548-604467", "inv_total": 749.63, "del_total": 319.7, "diff_value": -429.93}, {"received": "27/02/2026", "inv_date": "25/02/2026", "due_date": "30/03/2026", "invoice_num": "5905959641", "supplier": "IGLO386-26-604454", "inv_total": 771.46, "del_total": 306.22, "diff_value": -465.24}, {"received": "04/02/2026", "inv_date": "04/02/2026", "due_date": "30/03/2026", "invoice_num": "5905959138", "supplier": "IGLO386-24-591899", "inv_total": 714.94, "del_total": 322.48, "diff_value": -392.46}, {"received": "27/02/2026", "inv_date": "25/02/2026", "due_date": "30/03/2026", "invoice_num": "5905959642", "supplier": "IGLO386-92585-604483", "inv_total": 503.72, "del_total": 227.39, "diff_value": -276.33}, {"received": "11/02/2026", "inv_date": "11/02/2026", "due_date": "30/03/2026", "invoice_num": "5905959318", "supplier": "IGLO386-24-596217", "inv_total": 571.88, "del_total": 269.82, "diff_value": -302.06}, {"received": "03/03/2026", "inv_date": "02/03/2026", "due_date": "01/04/2026", "invoice_num": "2026/845", "supplier": "EPORIFRUTAS386-24-592292", "inv_total": -82.24, "del_total": 213.24, "diff_value": 295.48}, {"received": "02/03/2026", "inv_date": "28/02/2026", "due_date": "01/04/2026", "invoice_num": "ZFPPB038/9825119717", "supplier": "COCA COLA-", "inv_total": 1478.04, "del_total": null, "diff_value": null}, {"received": "02/03/2026", "inv_date": "28/02/2026", "due_date": "01/04/2026", "invoice_num": "ZFPPB038/9825119719", "supplier": "COCA COLA-", "inv_total": 296.02, "del_total": null, "diff_value": null}, {"received": "03/02/2026", "inv_date": "31/01/2026", "due_date": "01/04/2026", "invoice_num": "ZFPPB038/9825119654", "supplier": "COCA COLA386-24-573805", "inv_total": 171.62, "del_total": 154.24, "diff_value": -17.38}, {"received": "17/03/2026", "inv_date": "31/01/2026", "due_date": "01/04/2026", "invoice_num": "ZFPPB038/9825119622", "supplier": "COCA COLA-", "inv_total": 838.4, "del_total": null, "diff_value": null}, {"received": "04/02/2026", "inv_date": "03/02/2026", "due_date": "01/04/2026", "invoice_num": "91085085", "supplier": "MONDELEZ SNACKS386-24-589434", "inv_total": 550.3, "del_total": 460.23, "diff_value": -90.07}, {"received": "02/03/2026", "inv_date": "28/02/2026", "due_date": "01/04/2026", "invoice_num": "ZFPPB038/9825119737", "supplier": "COCA COLA-", "inv_total": 282.11, "del_total": null, "diff_value": null}, {"received": "02/03/2026", "inv_date": "28/02/2026", "due_date": "01/04/2026", "invoice_num": "ZFPPB038/9825119729", "supplier": "COCA COLA386-548-601824", "inv_total": 204.22, "del_total": 175.58, "diff_value": -28.64}, {"received": "03/03/2026", "inv_date": "02/03/2026", "due_date": "01/04/2026", "invoice_num": "2026/850", "supplier": "EPORIFRUTAS-", "inv_total": -108.78, "del_total": null, "diff_value": null}, {"received": "03/02/2026", "inv_date": "31/01/2026", "due_date": "01/04/2026", "invoice_num": "ZFPPB038/9825119657", "supplier": "COCA COLA386-24-581090", "inv_total": 337.2, "del_total": 76.92, "diff_value": -260.28}, {"received": "03/03/2026", "inv_date": "02/03/2026", "due_date": "01/04/2026", "invoice_num": "2026/852", "supplier": "EPORIFRUTAS386-26-605618", "inv_total": -69.53, "del_total": 30.26, "diff_value": 99.79}, {"received": "02/04/2026", "inv_date": "02/04/2026", "due_date": "02/04/2026", "invoice_num": "NCC26/251", "supplier": "JOAQUIM BARROS-", "inv_total": -73.1, "del_total": null, "diff_value": null}, {"received": "05/03/2026", "inv_date": "04/03/2026", "due_date": "03/04/2026", "invoice_num": "0160002001944", "supplier": "LACTOGAL386-24-608652", "inv_total": 272.89, "del_total": 63.24, "diff_value": -209.65}, {"received": "11/03/2026", "inv_date": "05/03/2026", "due_date": "04/04/2026", "invoice_num": "1950853731", "supplier": "GRUPO NABEIRO386-92585-604482", "inv_total": 291.73, "del_total": 316.1, "diff_value": 24.37}, {"received": "19/03/2026", "inv_date": "05/03/2026", "due_date": "04/04/2026", "invoice_num": "FAC01053202601/005094", "supplier": "MAKRO386-26-609424", "inv_total": 216.34, "del_total": 165.47, "diff_value": -50.87}, {"received": "11/03/2026", "inv_date": "05/03/2026", "due_date": "04/04/2026", "invoice_num": "1950853779", "supplier": "GRUPO NABEIRO386-26-604453", "inv_total": 258.48, "del_total": 270.24, "diff_value": 11.76}, {"received": "19/03/2026", "inv_date": "05/03/2026", "due_date": "04/04/2026", "invoice_num": "FAC01053202601/005112", "supplier": "MAKRO386-92585-609429", "inv_total": 218.16, "del_total": 208.8, "diff_value": -9.36}, {"received": "12/03/2026", "inv_date": "06/03/2026", "due_date": "05/04/2026", "invoice_num": "1950853929", "supplier": "GRUPO NABEIRO386-26-608665", "inv_total": 183.84, "del_total": 382.4, "diff_value": 198.56}, {"received": "10/03/2026", "inv_date": "06/03/2026", "due_date": "05/04/2026", "invoice_num": "FT44/4026", "supplier": "A TARTE386-26-611346", "inv_total": 195.57, "del_total": 236.26, "diff_value": 40.69}, {"received": "12/03/2026", "inv_date": "06/03/2026", "due_date": "05/04/2026", "invoice_num": "1950854022", "supplier": "GRUPO NABEIRO386-548-608676", "inv_total": 157.48, "del_total": 350.76, "diff_value": 193.28}, {"received": "11/03/2026", "inv_date": "06/03/2026", "due_date": "05/04/2026", "invoice_num": "9151048068", "supplier": "HARIBO386-92585-608968", "inv_total": 160.56, "del_total": 192.24, "diff_value": 31.68}, {"received": "12/03/2026", "inv_date": "06/03/2026", "due_date": "05/04/2026", "invoice_num": "9151048069", "supplier": "HARIBO386-548-608967", "inv_total": 231.8, "del_total": 277.5, "diff_value": 45.7}, {"received": "11/03/2026", "inv_date": "06/03/2026", "due_date": "05/04/2026", "invoice_num": "9151048067", "supplier": "HARIBO386-26-608966", "inv_total": 248.55, "del_total": 306.12, "diff_value": 57.57}, {"received": "31/03/2026", "inv_date": "18/03/2026", "due_date": "06/04/2026", "invoice_num": "ZRF2BRL1/6314042810", "supplier": "RECHEIO VFX386-548-614897", "inv_total": 1118.43, "del_total": 910.19, "diff_value": -208.24}, {"received": "31/03/2026", "inv_date": "17/03/2026", "due_date": "06/04/2026", "invoice_num": "ZRF2BRL1/6314042751", "supplier": "RECHEIO VFX386-26-614358", "inv_total": 982.58, "del_total": 857.17, "diff_value": -125.41}, {"received": "27/03/2026", "inv_date": "11/03/2026", "due_date": "10/04/2026", "invoice_num": "FACC26/2957", "supplier": "JOAQUIM BARROS386-548-612880", "inv_total": 285.47, "del_total": 249.01, "diff_value": -36.46}, {"received": "12/03/2026", "inv_date": "11/03/2026", "due_date": "10/04/2026", "invoice_num": "216177002-F2", "supplier": "NOBRE386-548-612882", "inv_total": 92.05, "del_total": 78.04, "diff_value": -14.01}, {"received": "12/03/2026", "inv_date": "11/03/2026", "due_date": "10/04/2026", "invoice_num": "2026/1030", "supplier": "EPORIFRUTAS-", "inv_total": -99.95, "del_total": null, "diff_value": null}, {"received": "11/03/2026", "inv_date": "11/03/2026", "due_date": "10/04/2026", "invoice_num": "2026/1031", "supplier": "EPORIFRUTAS386-548-608121", "inv_total": -43.05, "del_total": 49.35, "diff_value": 92.4}, {"received": "12/03/2026", "inv_date": "11/03/2026", "due_date": "10/04/2026", "invoice_num": "13464/2513686", "supplier": "VALE DA ROSA386-24-614333", "inv_total": 275.6, "del_total": 300.57, "diff_value": 24.97}, {"received": "12/03/2026", "inv_date": "12/03/2026", "due_date": "11/04/2026", "invoice_num": "1950854820", "supplier": "GRUPO NABEIRO386-92585-608688", "inv_total": 125.41, "del_total": 300.36, "diff_value": 174.95}, {"received": "16/03/2026", "inv_date": "13/03/2026", "due_date": "12/04/2026", "invoice_num": "216177574-F2", "supplier": "NOBRE386-92585-612905", "inv_total": 49.85, "del_total": 34.8, "diff_value": -15.05}, {"received": "27/03/2026", "inv_date": "25/03/2026", "due_date": "13/04/2026", "invoice_num": "ZRF2BRL1/6314043159", "supplier": "RECHEIO VFX386-548-618572", "inv_total": 533.8, "del_total": 517.08, "diff_value": -16.72}, {"received": "17/03/2026", "inv_date": "14/03/2026", "due_date": "13/04/2026", "invoice_num": "ZF2BA04/8121154972", "supplier": "DANONE NUTRICIA386-548-611926", "inv_total": 16.62, "del_total": 0.0, "diff_value": -16.62}, {"received": "16/03/2026", "inv_date": "14/03/2026", "due_date": "13/04/2026", "invoice_num": "1385006286", "supplier": "GRUPO NABEIRO386-92585-608688", "inv_total": 189.2, "del_total": 300.36, "diff_value": 111.16}, {"received": "31/03/2026", "inv_date": "23/03/2026", "due_date": "13/04/2026", "invoice_num": "ZRF2BRL1/6314043088", "supplier": "RECHEIO VFX386-26-617810", "inv_total": 541.37, "del_total": 502.9, "diff_value": -38.47}, {"received": "16/03/2026", "inv_date": "14/03/2026", "due_date": "13/04/2026", "invoice_num": "1385006283", "supplier": "GRUPO NABEIRO386-26-608665", "inv_total": 189.19, "del_total": 382.4, "diff_value": 193.21}, {"received": "16/03/2026", "inv_date": "14/03/2026", "due_date": "13/04/2026", "invoice_num": "1385006284", "supplier": "GRUPO NABEIRO386-548-608676", "inv_total": 189.19, "del_total": 350.76, "diff_value": 161.57}, {"received": "17/03/2026", "inv_date": "16/03/2026", "due_date": "15/04/2026", "invoice_num": "65100017", "supplier": "UL ICE CREAM COMERCIAL, Lda.386-548-611366", "inv_total": 472.71, "del_total": 420.13, "diff_value": -52.58}, {"received": "17/03/2026", "inv_date": "16/03/2026", "due_date": "15/04/2026", "invoice_num": "65100020", "supplier": "UL ICE CREAM COMERCIAL, Lda.386-92585-611365", "inv_total": 240.4, "del_total": 217.05, "diff_value": -23.35}, {"received": "17/03/2026", "inv_date": "16/03/2026", "due_date": "15/04/2026", "invoice_num": "65100015", "supplier": "UL ICE CREAM COMERCIAL, Lda.386-24-611371", "inv_total": 242.85, "del_total": 213.65, "diff_value": -29.2}, {"received": "17/03/2026", "inv_date": "16/03/2026", "due_date": "15/04/2026", "invoice_num": "65100016", "supplier": "UL ICE CREAM COMERCIAL, Lda.386-26-611364", "inv_total": 562.66, "del_total": 494.15, "diff_value": -68.51}, {"received": "18/03/2026", "inv_date": "16/03/2026", "due_date": "15/04/2026", "invoice_num": "10027", "supplier": "SOLBEL386-26-616478", "inv_total": 623.86, "del_total": 601.41, "diff_value": -22.45}, {"received": "17/03/2026", "inv_date": "16/03/2026", "due_date": "15/04/2026", "invoice_num": "65100125", "supplier": "UL ICE CREAM COMERCIAL, Lda.386-24-608953", "inv_total": 532.38, "del_total": 470.4, "diff_value": -61.98}, {"received": "18/03/2026", "inv_date": "17/03/2026", "due_date": "16/04/2026", "invoice_num": "2026/10409", "supplier": "EPORIFRUTAS386-548-617407", "inv_total": 12.3, "del_total": 90.85, "diff_value": 78.55}, {"received": "20/03/2026", "inv_date": "18/03/2026", "due_date": "17/04/2026", "invoice_num": "10563", "supplier": "SOLBEL386-548-616488", "inv_total": 1022.41, "del_total": 1001.88, "diff_value": -20.53}, {"received": "23/03/2026", "inv_date": "19/03/2026", "due_date": "18/04/2026", "invoice_num": "F2B700/2481122917", "supplier": "GRUPO BEL-", "inv_total": 45724.12, "del_total": null, "diff_value": null}, {"received": "19/03/2026", "inv_date": "19/03/2026", "due_date": "18/04/2026", "invoice_num": "F2B700/2481122918", "supplier": "GRUPO BEL-", "inv_total": 292.57, "del_total": null, "diff_value": null}, {"received": "23/03/2026", "inv_date": "19/03/2026", "due_date": "18/04/2026", "invoice_num": "G2B720/2483010864", "supplier": "GRUPO BEL-", "inv_total": -45724.12, "del_total": null, "diff_value": null}, {"received": "20/03/2026", "inv_date": "19/03/2026", "due_date": "18/04/2026", "invoice_num": "F2B700/2481123035", "supplier": "GRUPO BEL-", "inv_total": 484.93, "del_total": null, "diff_value": null}, {"received": "20/03/2026", "inv_date": "19/03/2026", "due_date": "18/04/2026", "invoice_num": "1950856207", "supplier": "GRUPO NABEIRO386-26-613733", "inv_total": 233.65, "del_total": 400.48, "diff_value": 166.83}, {"received": "23/03/2026", "inv_date": "20/03/2026", "due_date": "19/04/2026", "invoice_num": "G2B720/2483010878", "supplier": "GRUPO BEL-", "inv_total": -23.53, "del_total": null, "diff_value": null}, {"received": "23/03/2026", "inv_date": "20/03/2026", "due_date": "19/04/2026", "invoice_num": "G2B720/2483010877", "supplier": "GRUPO BEL-", "inv_total": -23.53, "del_total": null, "diff_value": null}, {"received": "23/03/2026", "inv_date": "19/03/2026", "due_date": "19/04/2026", "invoice_num": "FN26/68245607", "supplier": "EUROPASTRY386-26-618576", "inv_total": 102.43, "del_total": 87.99, "diff_value": -14.44}, {"received": "23/03/2026", "inv_date": "21/03/2026", "due_date": "20/04/2026", "invoice_num": "65100971", "supplier": "UL ICE CREAM COMERCIAL, Lda.386-24-614332", "inv_total": 117.38, "del_total": 99.84, "diff_value": -17.54}, {"received": "23/03/2026", "inv_date": "21/03/2026", "due_date": "20/04/2026", "invoice_num": "65100973", "supplier": "UL ICE CREAM COMERCIAL, Lda.386-548-614345", "inv_total": 195.63, "del_total": 166.4, "diff_value": -29.23}, {"received": "23/03/2026", "inv_date": "21/03/2026", "due_date": "20/04/2026", "invoice_num": "65100974", "supplier": "UL ICE CREAM COMERCIAL, Lda.386-92585-614377", "inv_total": 117.38, "del_total": 99.84, "diff_value": -17.54}, {"received": "23/03/2026", "inv_date": "21/03/2026", "due_date": "20/04/2026", "invoice_num": "65100972", "supplier": "UL ICE CREAM COMERCIAL, Lda.386-26-614361", "inv_total": 268.3, "del_total": 228.24, "diff_value": -40.06}, {"received": "23/03/2026", "inv_date": "23/03/2026", "due_date": "22/04/2026", "invoice_num": "65101137", "supplier": "UL ICE CREAM COMERCIAL, Lda.386-92585-615678", "inv_total": 144.33, "del_total": 124.5, "diff_value": -19.83}, {"received": "23/03/2026", "inv_date": "23/03/2026", "due_date": "22/04/2026", "invoice_num": "1385006357", "supplier": "GRUPO NABEIRO386-26-613733", "inv_total": 170.27, "del_total": 400.48, "diff_value": 230.21}, {"received": "23/03/2026", "inv_date": "23/03/2026", "due_date": "22/04/2026", "invoice_num": "FT026/952", "supplier": "RANA386-548-617144", "inv_total": 233.6, "del_total": 227.7, "diff_value": -5.9}, {"received": "27/03/2026", "inv_date": "23/03/2026", "due_date": "22/04/2026", "invoice_num": "ZF2BA04/8121155599", "supplier": "DANONE NUTRICIA386-92585-619317", "inv_total": 61.86, "del_total": 47.4, "diff_value": -14.46}, {"received": "27/03/2026", "inv_date": "23/03/2026", "due_date": "22/04/2026", "invoice_num": "ZF2BA04/8121155600", "supplier": "DANONE NUTRICIA386-26-619340", "inv_total": 33.24, "del_total": 23.68, "diff_value": -9.56}, {"received": "23/03/2026", "inv_date": "23/03/2026", "due_date": "22/04/2026", "invoice_num": "65101136", "supplier": "UL ICE CREAM COMERCIAL, Lda.386-26-615693", "inv_total": 139.43, "del_total": 123.08, "diff_value": -16.35}, {"received": "30/03/2026", "inv_date": "24/03/2026", "due_date": "23/04/2026", "invoice_num": "2026/11417", "supplier": "EPORIFRUTAS386-548-621346", "inv_total": 100.7, "del_total": 42.67, "diff_value": -58.03}, {"received": "27/03/2026", "inv_date": "24/03/2026", "due_date": "23/04/2026", "invoice_num": "2026/1254", "supplier": "EPORIFRUTAS386-548-619703", "inv_total": -91.29, "del_total": 107.73, "diff_value": 199.02}, {"received": "30/03/2026", "inv_date": "25/03/2026", "due_date": "24/04/2026", "invoice_num": "2026/11654", "supplier": "EPORIFRUTAS386-548-622107", "inv_total": 197.49, "del_total": 173.0, "diff_value": -24.49}, {"received": "27/03/2026", "inv_date": "26/03/2026", "due_date": "25/04/2026", "invoice_num": "1874035894", "supplier": "LACTOGAL-", "inv_total": -3.1, "del_total": null, "diff_value": null}, {"received": "27/03/2026", "inv_date": "26/03/2026", "due_date": "25/04/2026", "invoice_num": "G2B720/2483010930", "supplier": "GRUPO BEL-", "inv_total": -16.64, "del_total": null, "diff_value": null}, {"received": "27/03/2026", "inv_date": "26/03/2026", "due_date": "25/04/2026", "invoice_num": "700664", "supplier": "MENORQUINA386-92585-616494", "inv_total": 44.64, "del_total": 54.96, "diff_value": 10.32}, {"received": "27/03/2026", "inv_date": "26/03/2026", "due_date": "25/04/2026", "invoice_num": "2026/11818", "supplier": "EPORIFRUTAS-", "inv_total": 16.54, "del_total": null, "diff_value": null}, {"received": "27/03/2026", "inv_date": "26/03/2026", "due_date": "25/04/2026", "invoice_num": "G2B720/2483010929", "supplier": "GRUPO BEL386-24-584439", "inv_total": -25.02, "del_total": 242.42, "diff_value": 267.44}, {"received": "27/03/2026", "inv_date": "26/03/2026", "due_date": "25/04/2026", "invoice_num": "700663", "supplier": "MENORQUINA386-548-616484", "inv_total": 89.28, "del_total": 109.92, "diff_value": 20.64}, {"received": "27/03/2026", "inv_date": "27/03/2026", "due_date": "26/04/2026", "invoice_num": "FAC1A26/3147", "supplier": "MARMITA386-26-617133", "inv_total": 129.29, "del_total": 114.7, "diff_value": -14.59}, {"received": "30/03/2026", "inv_date": "27/03/2026", "due_date": "26/04/2026", "invoice_num": "220209065-RE", "supplier": "NOBRE-", "inv_total": -90.52, "del_total": null, "diff_value": null}, {"received": "30/03/2026", "inv_date": "27/03/2026", "due_date": "26/04/2026", "invoice_num": "1320304534", "supplier": "NESTL\u00c9 SECOS386-548-620212", "inv_total": 160.2, "del_total": 152.88, "diff_value": -7.32}, {"received": "30/03/2026", "inv_date": "29/03/2026", "due_date": "28/04/2026", "invoice_num": "2026/12123", "supplier": "EPORIFRUTAS386-548-623881", "inv_total": 87.99, "del_total": 84.04, "diff_value": -3.95}, {"received": "01/04/2026", "inv_date": "30/03/2026", "due_date": "29/04/2026", "invoice_num": "ZF1B021/2002151157", "supplier": "SOGRAPE386-26-621791", "inv_total": 277.1, "del_total": 246.24, "diff_value": -30.86}, {"received": "31/03/2026", "inv_date": "30/03/2026", "due_date": "29/04/2026", "invoice_num": "1320306042", "supplier": "Nestl\u00e9 Purina386-548-620211", "inv_total": 64.21, "del_total": 0.0, "diff_value": -64.21}, {"received": "31/03/2026", "inv_date": "27/03/2026", "due_date": "29/04/2026", "invoice_num": "4010211782", "supplier": "JMD386-26-622563", "inv_total": 441.32, "del_total": 348.23, "diff_value": -93.09}, {"received": "31/03/2026", "inv_date": "30/03/2026", "due_date": "29/04/2026", "invoice_num": "1320306044", "supplier": "Nestl\u00e9 Purina386-92585-620222", "inv_total": 64.21, "del_total": 128.48, "diff_value": 64.27}, {"received": "11/03/2026", "inv_date": "05/03/2026", "due_date": "29/04/2026", "invoice_num": "4010209397", "supplier": "JMD386-548-611073", "inv_total": 440.1, "del_total": 432.6, "diff_value": -7.5}, {"received": "16/03/2026", "inv_date": "13/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111850388", "supplier": "DANONE386-26-614350", "inv_total": 13.37, "del_total": 68.76, "diff_value": 55.39}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "FT1/5103545", "supplier": "BIMBO-", "inv_total": 802.96, "del_total": null, "diff_value": null}, {"received": "18/03/2026", "inv_date": "17/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111851216", "supplier": "DANONE386-26-616713", "inv_total": 71.3, "del_total": 135.98, "diff_value": 64.68}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111855008", "supplier": "DANONE386-24-624354", "inv_total": 26.82, "del_total": 14.1, "diff_value": -12.72}, {"received": "26/03/2026", "inv_date": "23/03/2026", "due_date": "30/04/2026", "invoice_num": "FC4SED26/002082", "supplier": "P\u00c3O EM CASA386-548-618801", "inv_total": 41.23, "del_total": 50.73, "diff_value": 9.5}, {"received": "18/03/2026", "inv_date": "17/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111851215", "supplier": "DANONE386-24-616712", "inv_total": 46.64, "del_total": 58.9, "diff_value": 12.26}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "FT610/14411", "supplier": "MONTALVA386-24-623446", "inv_total": 68.48, "del_total": 66.94, "diff_value": -1.54}, {"received": "10/03/2026", "inv_date": "09/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111849477", "supplier": "DANONE386-92585-610246", "inv_total": 74.33, "del_total": 116.16, "diff_value": 41.83}, {"received": "11/03/2026", "inv_date": "11/03/2026", "due_date": "30/04/2026", "invoice_num": "5905960056", "supplier": "IGLO386-92585-612901", "inv_total": 437.52, "del_total": 216.34, "diff_value": -221.18}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111855174", "supplier": "DANONE386-92585-624374", "inv_total": 102.75, "del_total": 57.42, "diff_value": -45.33}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "2026/12499", "supplier": "EPORIFRUTAS386-92585-625455", "inv_total": 74.8, "del_total": 65.22, "diff_value": -9.58}, {"received": "04/03/2026", "inv_date": "03/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111848297", "supplier": "DANONE386-26-607735", "inv_total": 68.02, "del_total": 45.12, "diff_value": -22.9}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111855010", "supplier": "DANONE386-26-624358", "inv_total": 47.63, "del_total": 25.5, "diff_value": -22.13}, {"received": "27/03/2026", "inv_date": "25/03/2026", "due_date": "30/04/2026", "invoice_num": "5905960361", "supplier": "IGLO386-548-620208", "inv_total": 435.8, "del_total": 216.7, "diff_value": -219.1}, {"received": "27/03/2026", "inv_date": "25/03/2026", "due_date": "30/04/2026", "invoice_num": "5905960362", "supplier": "IGLO386-26-620195", "inv_total": 382.12, "del_total": 173.06, "diff_value": -209.06}, {"received": "26/03/2026", "inv_date": "24/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111852577", "supplier": "DANONE386-24-620200", "inv_total": 29.12, "del_total": 56.82, "diff_value": 27.7}, {"received": "18/03/2026", "inv_date": "13/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111850411", "supplier": "DANONE386-92585-614366", "inv_total": 166.47, "del_total": 113.0, "diff_value": -53.47}, {"received": "23/03/2026", "inv_date": "12/03/2026", "due_date": "30/04/2026", "invoice_num": "ZL31BC28/0360497329", "supplier": "SOGENAVE386-26-613739", "inv_total": 38.71, "del_total": 12.6, "diff_value": -26.11}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "0160002001986", "supplier": "LACTOGAL386-92585-623456", "inv_total": 196.18, "del_total": 195.58, "diff_value": -0.6}, {"received": "31/03/2026", "inv_date": "27/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111853386", "supplier": "DANONE386-92585-621753", "inv_total": 197.02, "del_total": 325.11, "diff_value": 128.09}, {"received": "31/03/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "2026/12388", "supplier": "EPORIFRUTAS386-548-624628", "inv_total": 141.45, "del_total": 120.43, "diff_value": -21.02}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "FT610/14415", "supplier": "MONTALVA386-26-622567", "inv_total": 141.17, "del_total": 138.7, "diff_value": -2.47}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111855009", "supplier": "DANONE386-26-621781", "inv_total": 87.07, "del_total": 97.71, "diff_value": 10.64}, {"received": "30/03/2026", "inv_date": "27/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111853438", "supplier": "DANONE386-24-621745", "inv_total": 40.18, "del_total": 124.82, "diff_value": 84.64}, {"received": "24/03/2026", "inv_date": "23/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111852342", "supplier": "DANONE386-26-619339", "inv_total": 30.97, "del_total": 47.54, "diff_value": 16.57}, {"received": "16/03/2026", "inv_date": "13/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111850388", "supplier": "DANONE386-26-614350", "inv_total": 13.37, "del_total": 68.76, "diff_value": 55.39}, {"received": "26/03/2026", "inv_date": "25/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111852986", "supplier": "DANONE386-26-620191", "inv_total": 81.03, "del_total": 64.7, "diff_value": -16.33}, {"received": "26/03/2026", "inv_date": "24/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111852614", "supplier": "DANONE386-92585-620216", "inv_total": 69.15, "del_total": 43.5, "diff_value": -25.65}, {"received": "16/03/2026", "inv_date": "13/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111850486", "supplier": "DANONE386-548-612875", "inv_total": 212.31, "del_total": 223.36, "diff_value": 11.05}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "FT1/5103547", "supplier": "BIMBO-", "inv_total": 600.85, "del_total": null, "diff_value": null}, {"received": "16/03/2026", "inv_date": "13/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111850474", "supplier": "DANONE386-24-614325", "inv_total": 87.29, "del_total": 96.32, "diff_value": 9.03}, {"received": "10/03/2026", "inv_date": "09/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111849453", "supplier": "DANONE386-26-610202", "inv_total": 105.82, "del_total": 80.74, "diff_value": -25.08}, {"received": "04/03/2026", "inv_date": "03/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111848298", "supplier": "DANONE386-26-608663", "inv_total": 76.28, "del_total": 50.2, "diff_value": -26.08}, {"received": "20/03/2026", "inv_date": "19/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111851755", "supplier": "DANONE386-24-617791", "inv_total": 53.55, "del_total": 151.8, "diff_value": 98.25}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "FT610/14412", "supplier": "MONTALVA386-26-620984", "inv_total": 432.12, "del_total": 385.6, "diff_value": -46.52}, {"received": "10/03/2026", "inv_date": "06/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111849086", "supplier": "DANONE386-26-608663", "inv_total": 11.55, "del_total": 50.2, "diff_value": 38.65}, {"received": "17/03/2026", "inv_date": "14/03/2026", "due_date": "30/04/2026", "invoice_num": "FTF2026022572", "supplier": "PEPSICO386-548-611932", "inv_total": 83.39, "del_total": 66.73, "diff_value": -16.66}, {"received": "18/03/2026", "inv_date": "17/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111851214", "supplier": "DANONE386-24-616712", "inv_total": 13.37, "del_total": 58.9, "diff_value": 45.53}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "FT1/5103544", "supplier": "BIMBO-", "inv_total": 579.83, "del_total": null, "diff_value": null}, {"received": "20/03/2026", "inv_date": "19/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111851756", "supplier": "DANONE386-24-617791", "inv_total": 114.84, "del_total": 151.8, "diff_value": 36.96}, {"received": "27/03/2026", "inv_date": "24/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111852725", "supplier": "DANONE386-548-617138", "inv_total": 297.13, "del_total": 341.76, "diff_value": 44.63}, {"received": "06/03/2026", "inv_date": "05/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111848675", "supplier": "DANONE386-548-608674", "inv_total": 257.34, "del_total": 240.64, "diff_value": -16.7}, {"received": "01/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "2026/1348", "supplier": "EPORIFRUTAS-", "inv_total": -19.96, "del_total": null, "diff_value": null}, {"received": "31/03/2026", "inv_date": "27/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111853440", "supplier": "DANONE386-26-621781", "inv_total": 87.07, "del_total": 97.71, "diff_value": 10.64}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "FT1/5103546", "supplier": "BIMBO-", "inv_total": 575.69, "del_total": null, "diff_value": null}, {"received": "18/03/2026", "inv_date": "17/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111851216", "supplier": "DANONE386-26-616713", "inv_total": 71.3, "del_total": 135.98, "diff_value": 64.68}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "FT1/5103545", "supplier": "BIMBO-", "inv_total": 802.96, "del_total": null, "diff_value": null}, {"received": "20/03/2026", "inv_date": "19/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111851778", "supplier": "DANONE386-92585-617831", "inv_total": 141.28, "del_total": 121.72, "diff_value": -19.56}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "30/04/2026", "invoice_num": "FT610/14410", "supplier": "MONTALVA386-24-621749", "inv_total": 449.49, "del_total": 330.16, "diff_value": -119.33}, {"received": "30/03/2026", "inv_date": "27/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111853439", "supplier": "DANONE386-26-621781", "inv_total": 12.77, "del_total": 97.71, "diff_value": 84.94}, {"received": "23/03/2026", "inv_date": "19/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111851757", "supplier": "DANONE386-26-617801", "inv_total": 111.13, "del_total": 142.15, "diff_value": 31.02}, {"received": "24/03/2026", "inv_date": "23/03/2026", "due_date": "30/04/2026", "invoice_num": "ZF2BC07/8111852343", "supplier": "DANONE386-26-619339", "inv_total": 17.83, "del_total": 47.54, "diff_value": 29.71}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB038/9825120040", "supplier": "COCA COLA386-26-623428", "inv_total": 47.45, "del_total": 40.76, "diff_value": -6.69}, {"received": "02/04/2026", "inv_date": "01/04/2026", "due_date": "01/05/2026", "invoice_num": "2026/12753", "supplier": "EPORIFRUTAS386-26-626105", "inv_total": 105.94, "del_total": 106.86, "diff_value": 0.92}, {"received": "12/03/2026", "inv_date": "11/03/2026", "due_date": "01/05/2026", "invoice_num": "91087688", "supplier": "MONDELEZ SNACKS386-26-610207", "inv_total": 736.3, "del_total": 804.92, "diff_value": 68.62}, {"received": "10/03/2026", "inv_date": "05/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB024/9814629390", "supplier": "COCA COLA386-548-610217", "inv_total": 57.1, "del_total": 39.68, "diff_value": -17.42}, {"received": "16/03/2026", "inv_date": "14/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB024/9814631226", "supplier": "COCA COLA386-548-615656", "inv_total": 158.93, "del_total": 141.18, "diff_value": -17.75}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB038/9825120057", "supplier": "COCA COLA386-92585-623450", "inv_total": 69.7, "del_total": 65.88, "diff_value": -3.82}, {"received": "27/03/2026", "inv_date": "26/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB024/9814633519", "supplier": "COCA COLA386-548-614334", "inv_total": 208.57, "del_total": 195.98, "diff_value": -12.59}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB038/9825119854", "supplier": "COCA COLA-", "inv_total": 194.29, "del_total": null, "diff_value": null}, {"received": "23/03/2026", "inv_date": "21/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB024/9814632576", "supplier": "COCA COLA386-548-619303", "inv_total": 100.59, "del_total": 66.74, "diff_value": -33.85}, {"received": "01/04/2026", "inv_date": "01/04/2026", "due_date": "01/05/2026", "invoice_num": "FATFATRT13/18674", "supplier": "ZEZEROVO386-26-623439", "inv_total": 335.81, "del_total": 303.76, "diff_value": -32.05}, {"received": "23/03/2026", "inv_date": "20/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB024/9814632402", "supplier": "COCA COLA386-548-617815", "inv_total": 235.86, "del_total": 190.34, "diff_value": -45.52}, {"received": "31/03/2026", "inv_date": "31/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB039/9825212926", "supplier": "COCA COLA386-548-623464", "inv_total": 132.89, "del_total": 120.68, "diff_value": -12.21}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB038/9825119833", "supplier": "COCA COLA-", "inv_total": 1012.24, "del_total": null, "diff_value": null}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB038/9825119832", "supplier": "COCA COLA-", "inv_total": 1358.12, "del_total": null, "diff_value": null}, {"received": "02/04/2026", "inv_date": "01/04/2026", "due_date": "01/05/2026", "invoice_num": "2026/12731", "supplier": "EPORIFRUTAS386-92585-626106", "inv_total": 50.23, "del_total": 49.64, "diff_value": -0.59}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB038/9825119831", "supplier": "COCA COLA-", "inv_total": 493.06, "del_total": null, "diff_value": null}, {"received": "02/04/2026", "inv_date": "31/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB038/9825119855", "supplier": "COCA COLA-", "inv_total": 369.92, "del_total": null, "diff_value": null}, {"received": "11/03/2026", "inv_date": "10/03/2026", "due_date": "01/05/2026", "invoice_num": "91087622", "supplier": "MONDELEZ SNACKS386-92585-610251", "inv_total": 577.85, "del_total": 483.14, "diff_value": -94.71}, {"received": "30/03/2026", "inv_date": "31/03/2026", "due_date": "01/05/2026", "invoice_num": "ZFPPB039/9825212803", "supplier": "COCA COLA386-548-621767", "inv_total": 244.63, "del_total": 216.78, "diff_value": -27.85}, {"received": "11/03/2026", "inv_date": "10/03/2026", "due_date": "01/05/2026", "invoice_num": "91087617", "supplier": "MONDELEZ SNACKS386-548-610222", "inv_total": 314.14, "del_total": 420.18, "diff_value": 106.04}, {"received": "02/04/2026", "inv_date": "02/04/2026", "due_date": "02/05/2026", "invoice_num": "2026/12782", "supplier": "EPORIFRUTAS386-548-626104", "inv_total": 123.01, "del_total": 104.0, "diff_value": -19.01}, {"received": "01/04/2026", "inv_date": "01/04/2026", "due_date": "31/05/2026", "invoice_num": "ZF2BC07/8111854409", "supplier": "DANONE386-26-624358", "inv_total": 47.63, "del_total": 25.5, "diff_value": -22.13}, {"received": "01/04/2026", "inv_date": "01/04/2026", "due_date": "31/05/2026", "invoice_num": "ZF2BC07/8111854407", "supplier": "DANONE386-24-624354", "inv_total": 26.82, "del_total": 14.1, "diff_value": -12.72}, {"received": "01/04/2026", "inv_date": "01/04/2026", "due_date": "31/05/2026", "invoice_num": "ZF2BC07/8111854245", "supplier": "DANONE386-92585-624374", "inv_total": 102.75, "del_total": 57.42, "diff_value": -45.33}, {"received": "02/04/2026", "inv_date": "01/04/2026", "due_date": "31/05/2026", "invoice_num": "ZF2BC07/8111854408", "supplier": "DANONE386-26-621781", "inv_total": 87.07, "del_total": 97.71, "diff_value": 10.64}];
+const HISTORY = {"2026-03-24": 198, "2026-03-25": 175, "2026-03-26": 184, "2026-03-27": 235, "2026-03-30": 176, "2026-03-31": 223, "2026-04-01": 213, "2026-04-02": 237, "2026-04-03": 174};
+const TRACKER = {"total": 3470, "last3d": 113, "by_day": {"01/04/2026": 2, "02/04/2026": 111}, "rows": [{"date": "01/04/2026", "supplier": "JOAQUIM BARROS", "product": "- -"}, {"date": "01/04/2026", "supplier": "JOAQUIM BARROS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "-"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONDELEZ SNACKS", "product": "- -"}, {"date": "02/04/2026", "supplier": "COCA COLA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MEIGAL", "product": "- -"}, {"date": "02/04/2026", "supplier": "MEIGAL", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "MONTALVA", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "EPORIFRUTAS", "product": "- -"}, {"date": "02/04/2026", "supplier": "COCA COLA", "product": "- -"}, {"date": "02/04/2026", "supplier": "COCA COLA", "product": "- -"}, {"date": "02/04/2026", "supplier": "COCA COLA", "product": "- -"}, {"date": "02/04/2026", "supplier": "COCA COLA", "product": "- -"}, {"date": "02/04/2026", "supplier": "COCA COLA", "product": "- -"}]};
+
+function getCompareInfo(currentTotal) {
+  const todayKey = TODAY.getFullYear() + '-' + String(TODAY.getMonth()+1).padStart(2,'0') + '-' + String(TODAY.getDate()).padStart(2,'0');
+  const dates = Object.keys(HISTORY).filter(d => d < todayKey).sort().reverse();
+  if (dates.length === 0) return null;
+  const prevDate = dates[0];
+  const prevTotal = HISTORY[prevDate];
+  const diff = currentTotal - prevTotal;
+  const approved = diff < 0 ? Math.abs(diff) : 0;
+  const newInv = diff > 0 ? diff : 0;
+  const parts = prevDate.split('-');
+  const label = parts[2] + '/' + parts[1];
+  return { prevDate: label, prevTotal, diff, approved, newInv };
+}
+
+function parseDate(s) {
+  if (!s) return null;
+  const p = s.split('/');
+  return new Date(+p[2], +p[1]-1, +p[0]);
+}
+function daysDiff(a, b) { return Math.round((a - b) / 86400000); }
+function fmtEuro(v) {
+  if (v == null) return '-';
+  return v.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2}) + '€';
+}
+function fmtDate(s) { return s || '-'; }
+function pct(n, t) { return t ? Math.round(n/t*1000)/10 : 0; }
+
+const data = RAW.map(r => ({
+  ...r,
+  _received: parseDate(r.received),
+  _inv_date: parseDate(r.inv_date),
+  _due_date: parseDate(r.due_date),
+}));
+
+const suppliers = [...new Set(data.map(r => r.supplier))].filter(Boolean).sort();
+const sel = document.getElementById('supplierFilter');
+suppliers.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o); });
+
+let searchTerm = '';
+let supplierVal = '';
+let activeKpi = null;
+const sortState = {};
+
+function filtered() {
+  let rows = data;
+  if (searchTerm) {
+    const q = searchTerm.toLowerCase();
+    rows = rows.filter(r => (r.invoice_num + ' ' + r.supplier).toLowerCase().includes(q));
+  }
+  if (supplierVal) rows = rows.filter(r => r.supplier === supplierVal);
+  return rows;
+}
+
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTH_COLORS = ['#7209b7','#560bad','#480ca8','#3a0ca3','#3f37c9','#4361ee','#4895ef','#4cc9f0','#72efdd','#2a9d8f','#264653','#e76f51'];
+
+function getMonthKey(d) { return d.getFullYear() + '-' + String(d.getMonth()).padStart(2,'0'); }
+function monthLabel(key) {
+  const [y, m] = key.split('-');
+  return MONTH_NAMES[+m] + ' ' + y;
+}
+
+const allMonths = [...new Set(data.filter(r => r._inv_date).map(r => getMonthKey(r._inv_date)))].sort();
+const currentMonthKey = getMonthKey(TODAY);
+
+const YESTERDAY = new Date(TODAY); YESTERDAY.setDate(YESTERDAY.getDate() - 1);
+function sameDay(a, b) { return a && b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+
+function computeMetrics(rows) {
+  const total = rows.length;
+  const sevenAgo = new Date(TODAY); sevenAgo.setDate(sevenAgo.getDate() - 7);
+  const thirtyAgo = new Date(TODAY); thirtyAgo.setDate(thirtyAgo.getDate() - 30);
+
+  const overdue = rows.filter(r => r._due_date && r._due_date < TODAY);
+  const over7d = rows.filter(r => r._received && r._received < sevenAgo);
+  const pos = rows.filter(r => r.diff_value != null && r.diff_value > 0);
+  const neg = rows.filter(r => r.diff_value != null && r.diff_value < 0);
+  const over30d = rows.filter(r => r._received && r._received <= thirtyAgo);
+  const recToday = rows.filter(r => sameDay(r._received, TODAY));
+  const recYesterday = rows.filter(r => sameDay(r._received, YESTERDAY));
+
+  const byMonth = {};
+  allMonths.forEach(mk => {
+    byMonth[mk] = rows.filter(r => r._inv_date && getMonthKey(r._inv_date) === mk);
+  });
+
+  return { total, overdue, over7d, pos, neg, over30d, recToday, recYesterday, byMonth };
+}
+
+function buildSectionDefs() {
+  const secs = [
+    { id:'today', title:'Received Today ('+TODAY.toLocaleDateString('en-GB')+')', color:'#06d6a0',
+      cols:['Invoice #','Supplier','Invoice Date','Due Date','Amount'],
+      keys:['invoice_num','supplier','inv_date','due_date','inv_total'],
+      row: r => r,
+      fmts: [null,null,r=>fmtDate(r.inv_date),r=>fmtDate(r.due_date),r=>fmtEuro(r.inv_total)],
+      cls: [null,null,null,null,null] },
+    { id:'yesterday', title:'Received Yesterday ('+YESTERDAY.toLocaleDateString('en-GB')+')', color:'#118ab2',
+      cols:['Invoice #','Supplier','Invoice Date','Due Date','Amount'],
+      keys:['invoice_num','supplier','inv_date','due_date','inv_total'],
+      row: r => r,
+      fmts: [null,null,r=>fmtDate(r.inv_date),r=>fmtDate(r.due_date),r=>fmtEuro(r.inv_total)],
+      cls: [null,null,null,null,null] },
+    { id:'overdue', title:'Overdue Invoices', color:'#e63946',
+      cols:['Invoice #','Supplier','Due Date','Days Over','Amount'],
+      keys:['invoice_num','supplier','due_date','_daysOver','inv_total'],
+      row: r => { r._daysOver = r._due_date ? daysDiff(TODAY, r._due_date) : 0; return r; },
+      fmts: [null,null,r=>fmtDate(r.due_date), r=>r._daysOver+'d', r=>fmtEuro(r.inv_total)],
+      cls: [null,null,null,'urgent',null] },
+    { id:'over7d', title:'On Table > 7 Days', color:'#f77f00',
+      cols:['Invoice #','Supplier','Received','Days on Table','Amount'],
+      keys:['invoice_num','supplier','received','_daysOn','inv_total'],
+      row: r => { r._daysOn = r._received ? daysDiff(TODAY, r._received) : 0; return r; },
+      fmts: [null,null,r=>fmtDate(r.received), r=>r._daysOn+'d', r=>fmtEuro(r.inv_total)],
+      cls: [null,null,null,'urgent',null] },
+    { id:'over30d', title:'On the Table > 30 Days', color:'#d00000',
+      cols:['Invoice #','Supplier','Received','Days on Table','Amount'],
+      keys:['invoice_num','supplier','received','_daysOn30','inv_total'],
+      row: r => { r._daysOn30 = r._received ? daysDiff(TODAY, r._received) : 0; return r; },
+      fmts: [null,null,r=>fmtDate(r.received), r=>r._daysOn30+'d', r=>fmtEuro(r.inv_total)],
+      cls: [null,null,null,'urgent',null] },
+  ];
+
+  allMonths.forEach((mk, idx) => {
+    const color = MONTH_COLORS[idx % MONTH_COLORS.length];
+    secs.push({
+      id: 'month_' + mk.replace('-','_'),
+      monthKey: mk,
+      title: 'Invoices from ' + monthLabel(mk),
+      color: color,
+      cols: ['Invoice #','Supplier','Invoice Date','Received','Amount'],
+      keys: ['invoice_num','supplier','inv_date','received','inv_total'],
+      row: r => r,
+      fmts: [null,null,r=>fmtDate(r.inv_date),r=>fmtDate(r.received),r=>fmtEuro(r.inv_total)],
+      cls: [null,null,null,null,null],
+    });
+  });
+
+  secs.push(
+    { id:'pos', title:'Discrepancy (+) — Delivery > Invoice', color:'#2a9d8f',
+      cols:['Invoice #','Supplier','Invoice Total','Delivery Total','Difference'],
+      keys:['invoice_num','supplier','inv_total','del_total','diff_value'],
+      row: r => r,
+      fmts: [null,null,r=>fmtEuro(r.inv_total),r=>fmtEuro(r.del_total),r=>'+'+fmtEuro(Math.abs(r.diff_value))],
+      cls: [null,null,null,null,'positive'] },
+    { id:'neg', title:'Discrepancy (−) — Invoice > Delivery', color:'#e76f51',
+      cols:['Invoice #','Supplier','Invoice Total','Delivery Total','Difference'],
+      keys:['invoice_num','supplier','inv_total','del_total','diff_value'],
+      row: r => r,
+      fmts: [null,null,r=>fmtEuro(r.inv_total),r=>fmtEuro(r.del_total),r=>fmtEuro(r.diff_value)],
+      cls: [null,null,null,null,'negative'] },
+  );
+
+  secs.push(
+    { id:'tracker', title:'Discrepancy Tracker — Last 3 Days', color:'#ff6b6b',
+      cols:['Date','Supplier','Product'],
+      keys:['date','supplier','product'],
+      row: r => r,
+      fmts: [null,null,null],
+      cls: [null,null,null],
+      isTracker: true },
+  );
+
+  return secs;
+}
+
+const SECTIONS = buildSectionDefs();
+
+function buildSections() {
+  const c = document.getElementById('sectionsContainer');
+  c.innerHTML = '';
+  SECTIONS.forEach(s => {
+    c.innerHTML += `
+      <div class="section" id="sec-${s.id}">
+        <div class="section-header" onclick="toggleSection('${s.id}')">
+          <h2>${s.title}</h2>
+          <span class="badge" id="badge-${s.id}" style="background:${s.color}">0</span>
+          <span class="chevron" id="chev-${s.id}">&#9660;</span>
+        </div>
+        <div class="section-body" id="body-${s.id}">
+          <table><thead><tr id="thead-${s.id}"></tr></thead><tbody id="tbody-${s.id}"></tbody></table>
+        </div>
+      </div>`;
+  });
+  SECTIONS.forEach(s => {
+    const thead = document.getElementById('thead-'+s.id);
+    s.cols.forEach((col, i) => {
+      thead.innerHTML += `<th data-sec="${s.id}" data-col="${i}" onclick="sortTable('${s.id}', ${i})">${col} <span class="sort-icon">▲</span></th>`;
+    });
+  });
+}
+
+function toggleSection(id) {
+  const body = document.getElementById('body-'+id);
+  const chev = document.getElementById('chev-'+id);
+  body.classList.toggle('collapsed');
+  chev.classList.toggle('collapsed');
+}
+
+function sortTable(secId, colIdx) {
+  const key = secId + '-' + colIdx;
+  sortState[key] = sortState[key] === 'asc' ? 'desc' : 'asc';
+  document.querySelectorAll(`th[data-sec="${secId}"]`).forEach(th => th.classList.remove('sort-asc','sort-desc'));
+  document.querySelector(`th[data-sec="${secId}"][data-col="${colIdx}"]`).classList.add('sort-' + sortState[key]);
+  render();
+}
+
+function render() {
+  const rows = filtered();
+  const m = computeMetrics(rows);
+
+  const cmp = getCompareInfo(m.total);
+  const kpis = [
+    { id:'total', label:'Total Invoices', value:m.total, sub:'on the table', isMonth:false },
+    { id:'today', label:'Received Today', value:m.recToday.length, sub: pct(m.recToday.length,m.total)+'% of total', isMonth:false },
+    { id:'yesterday', label:'Received Yesterday', value:m.recYesterday.length, sub: pct(m.recYesterday.length,m.total)+'% of total', isMonth:false },
+    { id:'overdue', label:'Overdue', value:m.overdue.length, sub: pct(m.overdue.length,m.total)+'% of total', isMonth:false },
+    { id:'over7d', label:'On Table > 7 Days', value:m.over7d.length, sub: pct(m.over7d.length,m.total)+'% of total', isMonth:false },
+    { id:'pos', label:'Discrepancy (+)', value:m.pos.length, sub: pct(m.pos.length,m.total)+'% of total', isMonth:false },
+    { id:'neg', label:'Discrepancy (−)', value:m.neg.length, sub: pct(m.neg.length,m.total)+'% of total', isMonth:false },
+    { id:'over30d', label:'On Table > 30 Days', value:m.over30d.length, sub: pct(m.over30d.length,m.total)+'% of total', isMonth:false },
+  ];
+  allMonths.forEach(mk => {
+    const secId = 'month_' + mk.replace('-','_');
+    const cnt = (m.byMonth[mk] || []).length;
+    kpis.push({ id:secId, label:monthLabel(mk), value:cnt, sub: pct(cnt,m.total)+'% of total', isMonth:true });
+  });
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = '';
+  kpis.forEach(k => {
+    const active = activeKpi === k.id ? ' active' : '';
+    const monthCls = k.isMonth ? ' month-card' : '';
+    grid.innerHTML += `<div class="kpi-card${active}${monthCls}" data-kpi="${k.id}" onclick="kpiClick('${k.id}')">
+      <div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}</div><div class="kpi-pct">${k.sub}</div></div>`;
+  });
+  if (cmp) {
+    const arrow = cmp.diff < 0 ? '↓' : cmp.diff > 0 ? '↑' : '↔';
+    const diffAbs = Math.abs(cmp.diff);
+    let detail = `<div class="compare-detail">Previous (${cmp.prevDate}): <b>${cmp.prevTotal}</b>`;
+    if (cmp.approved > 0) detail += `<br><span class="approved">${cmp.approved} approved / removed</span>`;
+    if (cmp.newInv > 0) detail += `<br><span class="new-inv">${cmp.newInv} new invoices added</span>`;
+    if (cmp.diff === 0) detail += `<br>No change since last update`;
+    detail += `</div>`;
+    grid.innerHTML += `<div class="kpi-card" data-kpi="compare" style="grid-column: span 2;">
+      <div class="kpi-label">Day-over-Day Change</div>
+      <div class="kpi-value">${arrow} ${diffAbs}</div>
+      <div class="kpi-pct">${m.total} today vs ${cmp.prevTotal} previous</div>${detail}</div>`;
+  }
+
+  if (TRACKER.last3d > 0 || TRACKER.total > 0) {
+    let dayBreakdown = Object.entries(TRACKER.by_day).sort().reverse()
+      .map(([d,c]) => `<span class="tracker-day">${d}: <b>${c}</b></span>`).join(' &middot; ');
+    grid.innerHTML += `<div class="kpi-card" data-kpi="tracker" onclick="kpiClick('tracker')" style="grid-column: span 2;">
+      <div class="kpi-label">Discrepancy Tracker (Last 3 Days)</div>
+      <div class="kpi-value">${TRACKER.last3d}</div>
+      <div class="kpi-pct">${TRACKER.total} total tracked discrepancies</div>
+      <div style="margin-top:4px">${dayBreakdown}</div></div>`;
+  }
+
+  document.getElementById('subtitleCount').textContent = m.total;
+
+  const bars = [
+    ['Received today', m.recToday.length, m.total, '#06d6a0'],
+    ['Received yesterday', m.recYesterday.length, m.total, '#118ab2'],
+    ['Overdue', m.overdue.length, m.total, '#e63946'],
+    ['> 7 days on table', m.over7d.length, m.total, '#f77f00'],
+    ['Discrepancy (+)', m.pos.length, m.total, '#2a9d8f'],
+    ['Discrepancy (−)', m.neg.length, m.total, '#e76f51'],
+    ['> 30 days on table', m.over30d.length, m.total, '#d00000'],
+  ];
+  allMonths.forEach((mk, idx) => {
+    const cnt = (m.byMonth[mk] || []).length;
+    bars.push([monthLabel(mk), cnt, m.total, MONTH_COLORS[idx % MONTH_COLORS.length]]);
+  });
+  const bc = document.getElementById('barsContainer');
+  bc.innerHTML = '';
+  bars.forEach(([label, count, total, color]) => {
+    const p = pct(count, total);
+    bc.innerHTML += `<div class="bar-row"><div class="bar-label">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${p}%;background:${color}"></div></div>
+      <div class="bar-label" style="text-align:right">${count} pcs (${p}%)</div></div>`;
+  });
+
+  const sectionData = {
+    today: m.recToday, yesterday: m.recYesterday,
+    overdue: m.overdue, over7d: m.over7d, pos: m.pos, neg: m.neg,
+    over30d: m.over30d,
+    tracker: TRACKER.rows || []
+  };
+  allMonths.forEach(mk => {
+    sectionData['month_' + mk.replace('-','_')] = m.byMonth[mk] || [];
+  });
+
+  SECTIONS.forEach(sec => {
+    let sRows = (sectionData[sec.id] || []).map(sec.row);
+    const sk = sec.id + '-' + Object.keys(sortState).filter(k=>k.startsWith(sec.id+'-')).find(k=>sortState[k]) ;
+    for (const k in sortState) {
+      if (!k.startsWith(sec.id+'-')) continue;
+      const ci = +k.split('-').pop();
+      const key = sec.keys[ci];
+      const dir = sortState[k] === 'desc' ? -1 : 1;
+      sRows.sort((a,b) => {
+        let va = a[key], vb = b[key];
+        if (va == null) va = '';
+        if (vb == null) vb = '';
+        if (typeof va === 'number' && typeof vb === 'number') return (va - vb)*dir;
+        return String(va).localeCompare(String(vb))*dir;
+      });
+    }
+
+    document.getElementById('badge-'+sec.id).textContent = sRows.length + ' pcs';
+    const tbody = document.getElementById('tbody-'+sec.id);
+    if (!sRows.length) {
+      tbody.innerHTML = '<tr><td colspan="'+sec.cols.length+'" class="no-results">No invoices match the current filters</td></tr>';
+      return;
+    }
+    tbody.innerHTML = '';
+    sRows.forEach(r => {
+      let tr = '<tr>';
+      sec.cols.forEach((_, i) => {
+        const val = sec.fmts[i] ? sec.fmts[i](r) : (r[sec.keys[i]] ?? '-');
+        const c = sec.cls[i] ? ` class="${sec.cls[i]}"` : '';
+        tr += `<td${c}>${val}</td>`;
+      });
+      tr += '</tr>';
+      tbody.innerHTML += tr;
+    });
+  });
+}
+
+function kpiClick(id) {
+  if (activeKpi === id) { activeKpi = null; }
+  else { activeKpi = id; }
+  render();
+  if (activeKpi && activeKpi !== 'total') {
+    const sec = document.getElementById('sec-' + id);
+    if (sec) {
+      const body = document.getElementById('body-' + id);
+      if (body.classList.contains('collapsed')) toggleSection(id);
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      sec.classList.remove('highlight');
+      void sec.offsetWidth;
+      sec.classList.add('highlight');
+    }
+  }
+}
+
+document.getElementById('searchBox').addEventListener('input', e => { searchTerm = e.target.value; render(); });
+document.getElementById('supplierFilter').addEventListener('change', e => { supplierVal = e.target.value; render(); });
+document.getElementById('resetBtn').addEventListener('click', () => {
+  searchTerm = ''; supplierVal = ''; activeKpi = null;
+  document.getElementById('searchBox').value = '';
+  document.getElementById('supplierFilter').value = '';
+  for (const k in sortState) delete sortState[k];
+  document.querySelectorAll('th').forEach(th => th.classList.remove('sort-asc','sort-desc'));
+  render();
+});
+
+buildSections();
+render();
+</script>
+</body>
+</html>
