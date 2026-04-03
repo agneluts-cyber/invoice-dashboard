@@ -56,3 +56,14 @@ jobs:
           publish_dir: ./_site
           publish_branch: gh-pages
           force_orphan: true
+
+      - name: Notify Slack
+        if: success()
+        run: |
+          TOTAL=$(grep -c ',' "invoices overview - Sheet1.csv" 2>/dev/null || echo "?")
+          TODAY=$(date -u '+%d %B %Y')
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"message\": \"Invoice Dashboard updated ($TODAY) — $TOTAL invoices on the table. View: https://agneluts-cyber.github.io/invoice-dashboard/\"}"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
