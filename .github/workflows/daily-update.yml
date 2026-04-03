@@ -2,8 +2,8 @@ name: Daily Invoice Update
 
 on:
   schedule:
-    # 9:00 AM EET (UTC+2) = 7:00 AM UTC, weekdays only
-    - cron: '0 7 * * 1-5'
+    # Target 9:00 AM EET — scheduled early to compensate for GitHub's 1-3h delay
+    - cron: '0 5 * * 1-5'
   workflow_dispatch: # allows manual trigger from GitHub UI
 
 permissions:
